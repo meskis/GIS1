@@ -23,6 +23,7 @@ import org.geotools.data.FileDataStore;
 import org.geotools.data.FileDataStoreFinder;
 import org.geotools.data.collection.ListFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureCollection;
+import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.data.simple.SimpleFeatureSource;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.DefaultFeatureCollection;
@@ -61,7 +62,6 @@ public class Analyzer {
     Filter boundsCheck = null;
     String qryStr = null;
     String path = "C:\\Users\\Marcus\\Dropbox\\VU\\GIS\\gis_data";
-    
     HashMap<String, Layer> loadedLayers;
 
     /**
@@ -71,7 +71,7 @@ public class Analyzer {
      */
     public Analyzer(GIS gisMap) {
         this.gisFrame = gisMap;
-        
+
         loadedLayers = new HashMap<String, Layer>();
     }
 
@@ -238,7 +238,7 @@ public class Analyzer {
         return layer;
     }
 
-    protected Layer getHydroLayer() throws Exception {
+    protected Layer getPlotaiLayer() throws Exception {
         Layer layer = loadShpFile("LT10shp\\PLOTAI.shp");
 
         if (layer == null) {
@@ -261,7 +261,7 @@ public class Analyzer {
             calcRoadLength(area);
 
             // Get hydragraphical area
-            calcHydroArea(area);
+            calcSpecialAreas(area);
 
             // Green area 
 
@@ -360,33 +360,86 @@ public class Analyzer {
         return totalLength;
     }
 
-    private void calcHydroArea(SimpleFeature givenArea) throws Exception {
+    private void calcSpecialAreas(SimpleFeature givenArea) throws Exception {
+        
         SimpleFeatureCollection hydroAreaintersections = FeatureCollections.newCollection();
-
-        Geometry areaGeometry = (Geometry) givenArea.getDefaultGeometry();
-
-        Filter filter = (Filter) ff.intersects(ff.property("the_geom"), ff.literal(areaGeometry));
-
-        FeatureCollection intersectingHydroAreas = (SimpleFeatureCollection) getHydroLayer().getFeatureSource().getFeatures(filter);
-
-        System.out.println("Found HydroArea intersections: " + intersectingHydroAreas.size());
-
-        hydroAreaintersections.addAll(intersectingHydroAreas);
-
-        double totalHydroArea = calcHydroAreaSize(hydroAreaintersections);
+        SimpleFeatureCollection greenAreaintersections = FeatureCollections.newCollection();
+        SimpleFeatureCollection buildingAreaintersections = FeatureCollections.newCollection();
+        SimpleFeatureCollection PramoneAreaintersections = FeatureCollections.newCollection();
         
-        BigDecimal decimal = new BigDecimal(totalHydroArea);
-        
-        System.out.println("Decimal: " + decimal.toPlainString());
-        
-        DecimalFormat formatter = new DecimalFormat("##0.0######");
-        System.out.println("Decimal formated: " + formatter.format(totalHydroArea));
-        
-        addOutput("Total hydrographical area: " + Double.toString(totalHydroArea));
+        // Filter
+        Geometry givenAreaGeometry = (Geometry) givenArea.getDefaultGeometry();
+        Filter filter = (Filter) ff.intersects(ff.property("the_geom"), ff.literal(givenAreaGeometry));
 
+        // Apply filter
+        SimpleFeatureCollection intersectingAreas = (SimpleFeatureCollection) getPlotaiLayer().getFeatureSource().getFeatures(filter);
+        
+        // Iterate over results and separate needd types
+        SimpleFeatureIterator iterator = (SimpleFeatureIterator) intersectingAreas.features();
+        
+        while(iterator.hasNext()){
+            SimpleFeature feature = iterator.next();
+            
+            String GKODAS = (String) feature.getAttribute("GKODAS");
+            // IF Hydro area
+            if(GKODAS.contains("hd")){
+                hydroAreaintersections.add(feature);
+                System.out.println("Water area found " + feature.getName());
+            }
+            
+            // IF green area
+            if(GKODAS.contains("ms0")){
+                greenAreaintersections.add(feature);
+                System.out.println("GREEN area found " + feature.getName());
+            }
+
+            // IF area with buildings
+            if(GKODAS.contains("ms4")){
+                buildingAreaintersections.add(feature);
+                System.out.println("Buildinga area found " + feature.getName());
+            }
+
+            // pramoniniu sodu masyvu plota kiekviename administraciniame vienete
+            if(GKODAS.contains("pu0")){
+                PramoneAreaintersections.add(feature);
+                System.out.println("Pramonine area found " + feature.getName());
+            }
+
+        }
+
+        // Ratio with total selected area kiekvieno ju santyki su bendru administracinio vieneto plotu. (PLOTAI)
+        double totalAreaSize = getSizeOfAreaByGeom(givenAreaGeometry);
+        addOutput("Total analysing area: " + toDecimal(totalAreaSize) + "\n");
+        
+        // Hydro area
+        double totalHydroArea       = getFeatureCollectionAre(hydroAreaintersections);
+        addOutput("Hydrographical:\n");
+        addOutput("Ratio: " + toDecimal((totalHydroArea / totalAreaSize) * 100 ) + "% ");
+        addOutput("Total area: " + toDecimal(totalHydroArea)+ "\n");
+        
+        // Green area
+        double totalGreenArea       = getFeatureCollectionAre(greenAreaintersections);
+        addOutput("Green:\n");
+        addOutput("Ratio: " + toDecimal((totalGreenArea / totalAreaSize) * 100 ) + "% ");
+        addOutput("Total area: " + toDecimal(totalGreenArea)+ "\n");
+        
+        // Building area
+        double totalBuildingArea    = getFeatureCollectionAre(buildingAreaintersections);
+        addOutput("Buildings area: \n");
+        addOutput("Ratio: " + toDecimal((totalBuildingArea / totalAreaSize) * 100 ) + "% ");
+        addOutput("Total area: " + toDecimal(totalBuildingArea) + "\n");
+        
+        // Pramonine area
+        double totalPramonineArea   = getFeatureCollectionAre(PramoneAreaintersections);
+        addOutput("Pramonine:");
+        addOutput("Ratio: " + toDecimal((totalPramonineArea / totalAreaSize) * 100 ) + "% ");
+        addOutput("Total area: " + toDecimal(totalPramonineArea)+ "\n");
+        
+        addOutput("");
+        
     }
 
-    private double calcHydroAreaSize(SimpleFeatureCollection hydroAreaintersections) {
+    private double getFeatureCollectionAre(SimpleFeatureCollection hydroAreaintersections) {
         FeatureIterator iter = hydroAreaintersections.features();
 
         double totalLength = 0;
@@ -394,13 +447,7 @@ public class Analyzer {
         while (iter.hasNext()) {
             SimpleFeature hydroArea = (SimpleFeature) iter.next();
 
-            // Get area size
-            AreaFunction areaFunction = new AreaFunction();
-
-            Geometry hydroGeometry = (Geometry) hydroArea.getDefaultGeometry();
-
-            double length = areaFunction.getArea(hydroGeometry);
-
+            double length = getSimpleFeatureArea(hydroArea);
 
             if (length != 0) {
                 totalLength += length;
@@ -409,6 +456,23 @@ public class Analyzer {
         }
 
         return totalLength;
+    }
+    
+    
+    /**
+     * Retrieve simpleFeature area size
+     * 
+     * @param feature
+     * @return 
+     */
+    public double getSimpleFeatureArea(SimpleFeature feature)
+    {
+        // Get area size
+            AreaFunction areaFunction = new AreaFunction();
+
+            Geometry hydroGeometry = (Geometry) feature.getDefaultGeometry();
+
+            return areaFunction.getArea(hydroGeometry);
     }
 
     /**
@@ -420,9 +484,9 @@ public class Analyzer {
     protected Layer loadShpFile(String filename) throws IOException {
 
         String hash = hashString(filename);
-        
+
         // A bit caching and do not load layers few times
-        if(loadedLayers.containsKey(hash) ){
+        if (loadedLayers.containsKey(hash)) {
             return loadedLayers.get(hash);
         }
 
@@ -439,11 +503,25 @@ public class Analyzer {
         Style style = SLD.createSimpleStyle(featureSource.getSchema());
         Layer layer = new FeatureLayer(featureSource, style);
         layer.setTitle(file.getName());
-        
+
         // Put in cache
-        loadedLayers. put(hash, layer);
+        loadedLayers.put(hash, layer);
 
         return layer;
+    }
+
+    /**
+     * Calc area size 
+     * 
+     * @param geom
+     * @return 
+     */
+    protected double getSizeOfAreaByGeom(Geometry geom) {
+        
+        AreaFunction areaFunction = new AreaFunction();
+        double size = areaFunction.getArea(geom);
+        
+        return size;
     }
 
     /**
@@ -463,5 +541,19 @@ public class Analyzer {
         } catch (Exception e) {
             return "";
         }
+    }
+
+    /**
+     * Double to String and format
+     * 
+     * @param size
+     * @return 
+     */
+    private String toDecimal(double size) {
+        BigDecimal decimal = new BigDecimal(size);
+        
+        DecimalFormat formatter = new DecimalFormat("##0.0######");
+        
+        return formatter.format(size);
     }
 }
