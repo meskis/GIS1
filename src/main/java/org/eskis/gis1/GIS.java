@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Set;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import org.eskis.gis1.Core.AreaSelectorBtn;
 import org.geotools.data.FileDataStore;
 import org.geotools.data.FileDataStoreFinder;
 import org.geotools.data.Query;
@@ -98,6 +99,7 @@ public class GIS extends JMapFrame implements ActionListener {
         toolbar.add(new JButton(new SelecItemstButton()));
         toolbar.add(new JButton(new DeSelecItemstButton()));
         toolbar.add(new JButton(new ZoomToSelect()));
+        toolbar.add(new JButton(new AreaSelectorBtn(this)));
 
         searchField.setText("include");
         searchPanel.add(searchField);

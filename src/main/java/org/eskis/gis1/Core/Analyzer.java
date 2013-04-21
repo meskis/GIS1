@@ -61,7 +61,8 @@ public class Analyzer {
     Filter andFil = null;
     Filter boundsCheck = null;
     String qryStr = null;
-    String path = "C:\\Users\\Marcus\\Dropbox\\VU\\GIS\\gis_data";
+    //String path = "C:\\Users\\Marcus\\Dropbox\\VU\\GIS\\gis_data";
+    String path = "C:\\Users\\MESKIS\\Dropbox\\VU\\GIS\\gis_data";
     HashMap<String, Layer> loadedLayers;
 
     /**
@@ -413,19 +414,19 @@ public class Analyzer {
         
         // Hydro area
         double totalHydroArea       = getFeatureCollectionAre(hydroAreaintersections);
-        addOutput("Hydrographical:\n");
+        addOutput("Hydrographical:");
         addOutput("Ratio: " + toDecimal((totalHydroArea / totalAreaSize) * 100 ) + "% ");
         addOutput("Total area: " + toDecimal(totalHydroArea)+ "\n");
         
         // Green area
         double totalGreenArea       = getFeatureCollectionAre(greenAreaintersections);
-        addOutput("Green:\n");
+        addOutput("Green:");
         addOutput("Ratio: " + toDecimal((totalGreenArea / totalAreaSize) * 100 ) + "% ");
         addOutput("Total area: " + toDecimal(totalGreenArea)+ "\n");
         
         // Building area
         double totalBuildingArea    = getFeatureCollectionAre(buildingAreaintersections);
-        addOutput("Buildings area: \n");
+        addOutput("Buildings area:");
         addOutput("Ratio: " + toDecimal((totalBuildingArea / totalAreaSize) * 100 ) + "% ");
         addOutput("Total area: " + toDecimal(totalBuildingArea) + "\n");
         
