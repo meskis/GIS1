@@ -20,6 +20,8 @@ import java.util.Set;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import org.eskis.gis1.Core.AreaSelectorBtn;
+import org.eskis.gis1.Core.PerformAnalysisBtn;
+import org.eskis.gis1.Core.TargetAnalysis;
 import org.geotools.data.FileDataStore;
 import org.geotools.data.FileDataStoreFinder;
 import org.geotools.data.Query;
@@ -81,6 +83,7 @@ public class GIS extends JMapFrame implements ActionListener {
     private Layer lastSelected = null;
     
     protected JButton analyzeButton = new JButton("Analyze cities");
+    private Rectangle selectedRecangle;
 
     /**
      * Construct
@@ -100,6 +103,8 @@ public class GIS extends JMapFrame implements ActionListener {
         toolbar.add(new JButton(new DeSelecItemstButton()));
         toolbar.add(new JButton(new ZoomToSelect()));
         toolbar.add(new JButton(new AreaSelectorBtn(this)));
+        toolbar.add(new JButton(new AutoloadBtn(this)));
+        toolbar.add(new JButton(new PerformAnalysisBtn(this)));
 
         searchField.setText("include");
         searchPanel.add(searchField);
@@ -245,6 +250,18 @@ public class GIS extends JMapFrame implements ActionListener {
             }
         }
         return this.lastSelected;
+    }
+
+    public void setSelectedRectangle(Rectangle rectangle) {
+        this.selectedRecangle = rectangle;
+    }
+
+    public void performAnalysis() 
+    {
+        TargetAnalysis analyser =  new TargetAnalysis(this);
+        
+        analyser.perform();
+        
     }
 
     public class LayersList extends JList {
