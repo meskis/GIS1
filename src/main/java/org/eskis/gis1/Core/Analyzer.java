@@ -76,6 +76,10 @@ public class Analyzer {
         loadedLayers = new HashMap<String, Layer>();
     }
 
+    Analyzer(TargetAnalysis aThis) {
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+
     /**
      * Setter JTextPanel
      *

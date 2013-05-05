@@ -20,6 +20,7 @@ import java.util.Set;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import org.eskis.gis1.Core.AreaSelectorBtn;
+import org.eskis.gis1.Core.AutoloadSmallBtn;
 import org.eskis.gis1.Core.PerformAnalysisBtn;
 import org.eskis.gis1.Core.TargetAnalysis;
 import org.geotools.data.FileDataStore;
@@ -104,6 +105,7 @@ public class GIS extends JMapFrame implements ActionListener {
         toolbar.add(new JButton(new ZoomToSelect()));
         toolbar.add(new JButton(new AreaSelectorBtn(this)));
         toolbar.add(new JButton(new AutoloadBtn(this)));
+        toolbar.add(new JButton(new AutoloadSmallBtn(this)));
         toolbar.add(new JButton(new PerformAnalysisBtn(this)));
 
         searchField.setText("include");
@@ -255,6 +257,12 @@ public class GIS extends JMapFrame implements ActionListener {
     public void setSelectedRectangle(Rectangle rectangle) {
         this.selectedRecangle = rectangle;
     }
+    
+    public Rectangle getSelectedRectangle(){
+        return this.selectedRecangle;
+    }
+    
+    
 
     public void performAnalysis() 
     {
@@ -584,4 +592,98 @@ public class GIS extends JMapFrame implements ActionListener {
     {
         return infoTable;
     }
+    
+    public SimpleFeatureCollection selectFeatures(Rectangle rectangle, String name) {
+		Layer layer = this.getLayerByName(name);
+		if (layer == null) {
+			JOptionPane.showMessageDialog(this, "Please select a layer, to select from.");
+			return null;
+		} else if (this.lastSelected != null) {
+			if (!this.lastSelected.equals(layer)) {
+				this.deSelect();
+			}
+		}
+		lastSelected = layer;
+		this.setGeometry(layer.getFeatureSource().getSchema()
+				.getGeometryDescriptor());
+		AffineTransform screenToWorld = this.getMapPane()
+				.getScreenToWorldTransform();
+		System.out.println("Renkamasi is sluoksnio: " + name + "kvadratas: "
+				+ rectangle);
+		Rectangle2D worldRect = screenToWorld.createTransformedShape(rectangle)
+				.getBounds2D();
+		ReferencedEnvelope bbox = new ReferencedEnvelope(worldRect, this
+				.getMapContent().getCoordinateReferenceSystem());
+		/*
+		 * Create a Filter to select features that intersect with the bounding
+		 * box
+		 */
+		Filter filter = ff.intersects(ff.property(geometryAttributeName),
+				ff.literal(bbox));
+
+		/*
+		 * Use the filter to identify the selected features
+		 */
+		try {
+			SimpleFeatureCollection selectedFeatures = (SimpleFeatureCollection) layer
+					.getFeatureSource().getFeatures(filter);
+			this.selectedFeatures.clear();
+			this.selectedFeatures.addAll(selectedFeatures);
+			System.out.println("Pasirinkta features: "
+					+ this.selectedFeatures.size());
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			return null;
+		}
+                
+                return selectedFeatures;
+	}
+    
+    public SimpleFeatureCollection selectFeatures(Rectangle rectangle, Layer layer, String name) {
+
+		lastSelected = layer;
+		this.setGeometry(layer.getFeatureSource().getSchema()
+				.getGeometryDescriptor());
+		AffineTransform screenToWorld = this.getMapPane()
+				.getScreenToWorldTransform();
+		System.out.println("Renkamasi is sluoksnio: " + name + "kvadratas: "
+				+ rectangle);
+		Rectangle2D worldRect = screenToWorld.createTransformedShape(rectangle)
+				.getBounds2D();
+		ReferencedEnvelope bbox = new ReferencedEnvelope(worldRect, this
+				.getMapContent().getCoordinateReferenceSystem());
+		/*
+		 * Create a Filter to select features that intersect with the bounding
+		 * box
+		 */
+		Filter filter = ff.intersects(ff.property(geometryAttributeName),
+				ff.literal(bbox));
+
+		/*
+		 * Use the filter to identify the selected features
+		 */
+		try {
+			SimpleFeatureCollection selectedFeatures = (SimpleFeatureCollection) layer
+					.getFeatureSource().getFeatures(filter);
+			this.selectedFeatures.clear();
+			this.selectedFeatures.addAll(selectedFeatures);
+			System.out.println("Pasirinkta features: "
+					+ this.selectedFeatures.size());
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			return null;
+		}
+                
+                return selectedFeatures;
+	}
+    
+    	public Layer getLayerByName(String name) {
+		List<Layer> layers = this.getMapContent().layers();
+		for (Layer element : layers) {
+			if (element.isSelected() && element.getTitle().equals(name)) {
+				return element;
+			}
+		}
+		return null;
+	}
 }
