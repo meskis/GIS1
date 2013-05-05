@@ -46,6 +46,17 @@ public class AreaAnalyzer {
     Rectangle selectionRectangle;
     Rectangle rec;
     Rectangle save;
+    
+    
+    protected Layer cityAreaLayer;
+    protected Geometry cityAreaGeometry;
+    
+    protected Layer riverAreaLayer;
+    protected Geometry riverAreaGeometry;
+    
+    protected Layer roadAreaLayer;
+    protected Geometry roadAreaGeometry;
+    
     /**
      * Results
      */
@@ -63,8 +74,11 @@ public class AreaAnalyzer {
         try {
             // Prepare selection
             prepare();
-
             constructCities();
+            constructRiverLayer();
+            constructRoadLayer();
+
+            calcFinalArea();
 
             JOptionPane.showMessageDialog(null, "Analysis done.");
 
@@ -79,24 +93,88 @@ public class AreaAnalyzer {
         // Filter cities
         Layer cityLayer = this.container.getCitylayer();
 
-        SimpleFeatureCollection allCityCollection = FeatureCollections.newCollection();
+        SimpleFeatureCollection fullCityCollection = (SimpleFeatureCollection) cityLayer.getFeatureSource().getFeatures();
 
-        SimpleFeatureCollection selectedFeatures = this.container.map.selectFeatures(rec, container.getCitylayer(), "Miestai");
-        allCityCollection.addAll(selectedFeatures);
+        /*
+         * TODO Filter selected features only
+         */
 
-        DefaultFeatureCollection gyvenvietesMin = new DefaultFeatureCollection(
-                new BufferedFeatureCollection(allCityCollection, "gyvenvietesM", this.container.getCityDistance()));
+        SimpleFeatureCollection cityCollection = FeatureCollections.newCollection();
+        cityCollection.addAll(fullCityCollection);
+
+        // Bufferize
+        DefaultFeatureCollection bufferizedCities = new DefaultFeatureCollection(new BufferedFeatureCollection(cityCollection, "BufferedCi", container.getCityDistance()));
+
+        // Join geometries
+        Geometry cityFeatures = gis.ConversionUtils.getGeometries(bufferizedCities);
+        Geometry oneBigCity = cityFeatures.buffer(0); // sujungia i viena
         
-        Geometry vietovesMG = gis.ConversionUtils.getGeometries(gyvenvietesMin);
-	Geometry vietMbuferis = vietovesMG.buffer(5000);
-        
-        //addNewLayer(gyvenvietesMin, "GyvenBuff");
-        
-        SimpleFeatureCollection gyvenam = gis.ConversionUtils.geometryToFeatures(vietMbuferis, "gyvenM");
+        cityAreaGeometry = oneBigCity;
+
+        SimpleFeatureCollection gyvenam = gis.ConversionUtils.geometryToFeatures(oneBigCity, "BigCityArea");
         Style style = SLD.createPolygonStyle(DEFAULT_LINE, Color.CYAN, 1);
-        Layer layer = new FeatureLayer(gyvenam, style);
+        Layer layer = new FeatureLayer(gyvenam, style, "CityArea");
         layer.setVisible(false);
         this.container.map.getMapContent().addLayer(layer);
+        cityAreaLayer = layer;
+    }
+
+    protected void constructRiverLayer() throws IOException {
+        Layer riverLayer = container.getRiverLayer();
+
+        /*
+         * TODO Filter selected features only
+         */
+        SimpleFeatureCollection fullRiverCollection = (SimpleFeatureCollection) riverLayer.getFeatureSource().getFeatures();
+
+        SimpleFeatureCollection riverCollection = FeatureCollections.newCollection();
+        riverCollection.addAll(fullRiverCollection);
+
+        // Bufferize
+        DefaultFeatureCollection bufferizedRivers = new DefaultFeatureCollection(new BufferedFeatureCollection(riverCollection, "BufferedRiver", container.getRiverDistance()));
+
+        // Join geometries
+        Geometry riverFeatures = gis.ConversionUtils.getGeometries(bufferizedRivers);
+        Geometry riverArea = riverFeatures.buffer(0); // sujungia i viena
+        
+        riverAreaGeometry = riverArea;
+
+        // Add layer
+        SimpleFeatureCollection singleColelctionItem = gis.ConversionUtils.geometryToFeatures(riverArea, "BigRiverArea");
+        Style style = SLD.createPolygonStyle(DEFAULT_LINE, Color.BLUE, 1);
+        Layer layer = new FeatureLayer(singleColelctionItem, style, "RiverArea");
+        layer.setVisible(false);
+        this.container.map.getMapContent().addLayer(layer);
+        riverAreaLayer = layer;
+    }
+
+    protected void constructRoadLayer() throws IOException {
+        Layer roadLayer = container.getRoadLayer();
+
+        /*
+         * TODO Filter selected features only
+         */
+        SimpleFeatureCollection fullRoadCollection = (SimpleFeatureCollection) roadLayer.getFeatureSource().getFeatures();
+
+        SimpleFeatureCollection roadCollection = FeatureCollections.newCollection();
+        roadCollection.addAll(fullRoadCollection);
+
+        // Bufferize
+        DefaultFeatureCollection bufferizedRoads = new DefaultFeatureCollection(new BufferedFeatureCollection(roadCollection, "BufferedRoads", container.getRoadDistance()));
+
+        // Join geometries
+        Geometry roadFeatures = gis.ConversionUtils.getGeometries(bufferizedRoads);
+        Geometry roadArea = roadFeatures.buffer(0); // sujungia i viena
+
+        roadAreaGeometry = roadArea;
+        
+        // Add layer
+        SimpleFeatureCollection singleCollectionItem = gis.ConversionUtils.geometryToFeatures(roadArea, "BigRoadArea");
+        Style style = SLD.createPolygonStyle(DEFAULT_LINE, Color.BLUE, 1);
+        Layer layer = new FeatureLayer(singleCollectionItem, style, "RoadArea");
+        layer.setVisible(false);
+        this.container.map.getMapContent().addLayer(layer);
+        roadAreaLayer = layer;
     }
 
     protected void prepare() {
@@ -134,119 +212,10 @@ public class AreaAnalyzer {
                 + selectionRectangle.getCenterY());
     }
 
-    private void bufferCities() throws IOException {
-        // Buffer cities
-        Layer cityLayer = container.getCitylayer();
-
-        SimpleFeatureCollection cityCollection = (SimpleFeatureCollection) cityLayer.getFeatureSource().getFeatures();
-
-
-        // Buffer cities
-        BufferedFeatureCollection bufferedCities = new BufferedFeatureCollection(cityCollection, "attribute", container.getCityDistance());
-
-        Geometry singleCityFeature = joinFeatures(bufferedCities);
-
-        //SimpleFeature singleCityArea = 
-
-
-
-        Style style = SLD.createSimpleStyle(bufferedCities.getSchema());
-        MapContent map = container.map.getMapContent();
-        Layer layer = new FeatureLayer(bufferedCities, style);
-        layer.setTitle("Buferizuoti miestai");
-        map.addLayer(layer);
-    }
-
-    
-    
-    	private void addNewLayer(FeatureCollection fc, String name) {
-		Layer newLayer = new FeatureLayer(fc, SLD.createSimpleStyle(fc
-				.getSchema()), name);
-		MemoryDataStore mds = new MemoryDataStore(fc);
-		this.container.map.getMapContent().addLayer(newLayer);
-	}
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    private void bufferRivers() throws IOException {
-        // Buffer cities
-        Layer cityLayer = container.getRiverLayer();
-
-        SimpleFeatureCollection cityCollection = (SimpleFeatureCollection) cityLayer.getFeatureSource().getFeatures();
-
-        // Buffer cities
-
-        BufferedFeatureCollection bufferedCities = new BufferedFeatureCollection(cityCollection, "attribute", container.getRiverDistance());
-
-        Style style = SLD.createSimpleStyle(bufferedCities.getSchema());
-        MapContent map = container.map.getMapContent();
-        layer = new FeatureLayer(bufferedCities, style);
-        layer.setTitle("Buferizuotos upes");
-        map.addLayer(layer);
-    }
-
-    private void createSearchArea() {
-        Point2D startPosWorld = new DirectPosition2D();
-        Point2D endPosWorld = new DirectPosition2D();
-
-        double minX = startPosWorld.getX();
-        double minY = startPosWorld.getY();
-        double maxX = endPosWorld.getX();
-        double maxY = endPosWorld.getY();
-
-
-    }
-
-    private void test() {
-
-        Geometry map_geometries = gis.ConversionUtils.getGeometries(layer);
-        Geometry gyvMbuferis = map_geometries.buffer(0); // sujungia i viena
-    }
-
-    private void formResult() {
-
-        Style styleG2 = SLD.createPolygonStyle(DEFAULT_LINE, Color.RED, 1);
-
-        Layer layerG2 = new FeatureLayer(resultCollection, SLD.createSimpleStyle(resultCollection.getSchema()), "Results1");
-
-        this.container.map.getMapContent().addLayer(layerG2);
-    }
-
-    private void search() {
-    }
-
-    private void bufferRoads() throws IOException {
-        // Buffer cities
-        Layer roadLayer = container.getRoadLayer();
-
-        SimpleFeatureCollection roadCollection = (SimpleFeatureCollection) roadLayer.getFeatureSource().getFeatures();
-
-        //Bufferize
-        BufferedFeatureCollection bufferedCities = new BufferedFeatureCollection(roadCollection, "attribute", container.getRoadDistance());
-
-        Style style = SLD.createSimpleStyle(bufferedCities.getSchema());
-        MapContent map = container.map.getMapContent();
-        layer = new FeatureLayer(bufferedCities, style, "Buferizuoti keliai");
-        map.addLayer(layer);
+    private void addNewLayer(FeatureCollection fc, String name) {
+        Layer newLayer = new FeatureLayer(fc, SLD.createSimpleStyle(fc.getSchema()), name);
+        MemoryDataStore mds = new MemoryDataStore(fc);
+        this.container.map.getMapContent().addLayer(newLayer);
     }
 
     public Rectangle getSelectionRectangle() {
@@ -277,13 +246,17 @@ public class AreaAnalyzer {
         return rec;
     }
 
-    private void joinRoadsAndRivers() {
-    }
-
-    private Geometry joinFeatures(SimpleFeatureCollection collection) {
-        Geometry geometry_array = gis.ConversionUtils.getGeometries(collection);
-        Geometry result = geometry_array.buffer(0); // sujungia i viena
-
-        return result;
+    /**
+     * Area calc logic
+     */
+    private void calcFinalArea() {
+        Geometry searchArea = cityAreaGeometry.difference(riverAreaGeometry).difference(roadAreaGeometry);
+        
+        // Display final area
+        SimpleFeatureCollection singleCollectionItem = gis.ConversionUtils.geometryToFeatures(searchArea, "FinalArea");
+        Style style = SLD.createPolygonStyle(DEFAULT_LINE, Color.RED, 1);
+        Layer layer = new FeatureLayer(singleCollectionItem, style, "Final");
+        layer.setVisible(true);
+        this.container.map.getMapContent().addLayer(layer);
     }
 }
