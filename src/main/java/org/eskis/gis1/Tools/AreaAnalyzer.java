@@ -4,10 +4,7 @@
  */
 package org.eskis.gis1.Tools;
 
-import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.geom.GeometryCollection;
-import com.vividsolutions.jts.geom.GeometryFactory;
-import com.vividsolutions.jts.geom.MultiPolygon;
+import com.vividsolutions.jts.geom.*;
 import java.awt.Color;
 import java.awt.Rectangle;
 import java.awt.geom.Point2D;
@@ -30,6 +27,7 @@ import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.geometry.DirectPosition2D;
 import org.geotools.geometry.jts.GeometryCollector;
+import org.geotools.geometry.jts.JTSFactoryFinder;
 import org.geotools.map.FeatureLayer;
 import org.geotools.map.Layer;
 import org.geotools.map.MapContent;
@@ -64,9 +62,10 @@ public class AreaAnalyzer {
     protected FeatureCollection<SimpleFeatureType, SimpleFeature> resultCollection;
     private Geometry searchArea;
     private SimpleFeatureCollection finalSearchCollectio;
+    private Layer reljefLayer;
+    private SimpleFeatureCollection selectedReljefFeatures;
 
     public AreaAnalyzer() {
-        
     }
 
     public AreaAnalyzer(TargetAnalysis aThis) {
@@ -84,9 +83,9 @@ public class AreaAnalyzer {
             constructRoadLayer();
             calcFinalArea();
 //
-            searchArea();
-            
             constructReljef();
+
+            searchArea();
 
             JOptionPane.showMessageDialog(null, "Analysis done.");
 
@@ -101,8 +100,8 @@ public class AreaAnalyzer {
         // Filter cities
         Layer cityLayer = this.container.getCitylayer();
 
-        SimpleFeatureCollection selectedFeatures =  this.container.map.selectFeatures(selectedRect, this.container.getCitylayer(), "City Area");
-        
+        SimpleFeatureCollection selectedFeatures = this.container.map.selectFeatures(selectedRect, this.container.getCitylayer(), "City Area");
+
         SimpleFeatureCollection cityCollection = FeatureCollections.newCollection();
         cityCollection.addAll(selectedFeatures);
 
@@ -133,8 +132,8 @@ public class AreaAnalyzer {
          */
         Layer riverLayer = container.getRiverLayer();
 
-        SimpleFeatureCollection selectedFeatures =  this.container.map.selectFeatures(selectedRect, this.container.getRiverLayer(), "City Area");
-        
+        SimpleFeatureCollection selectedFeatures = this.container.map.selectFeatures(selectedRect, this.container.getRiverLayer(), "City Area");
+
         SimpleFeatureCollection riverCollection = FeatureCollections.newCollection();
         riverCollection.addAll(selectedFeatures);
 
@@ -168,8 +167,8 @@ public class AreaAnalyzer {
 
         Layer roadLayer = container.getRoadLayer();
 
-        SimpleFeatureCollection selectedFeatures =  this.container.map.selectFeatures(selectedRect, this.container.getRoadLayer(), "Road Area");
-        
+        SimpleFeatureCollection selectedFeatures = this.container.map.selectFeatures(selectedRect, this.container.getRoadLayer(), "Road Area");
+
         SimpleFeatureCollection roadCollection = FeatureCollections.newCollection();
         roadCollection.addAll(selectedFeatures);
 
@@ -197,24 +196,29 @@ public class AreaAnalyzer {
         this.container.map.getMapContent().addLayer(layer);
         roadAreaLayer = layer;
     }
-    
-    protected void constructReljef(){
-        
-       SimpleFeatureCollection selectedFeatures =  this.container.map.selectFeatures(selectedRect, this.container.getReljefLayer(), "City Area");
-        
-       SimpleFeatureCollection reljefCollection = FeatureCollections.newCollection();
-       reljefCollection.addAll(selectedFeatures);
-        
+
+    protected void constructReljef() {
+
+        SimpleFeatureCollection reljefFeatures = this.container.map.selectFeatures(selectedRect, this.container.getReljefLayer(), "Reljef Area");
+
+        selectedReljefFeatures = reljefFeatures;
+
+        Style style = SLD.createPolygonStyle(DEFAULT_LINE, Color.ORANGE, 1);
+        Layer layer = new FeatureLayer(reljefFeatures, style, "ReljefArea");
+        layer.setVisible(false);
+        this.container.map.getMapContent().addLayer(layer);
+        reljefLayer = layer;
+
     }
 
     protected void prepare() {
         selectionRectangle = container.map.getSelectedRectangle();
         double minX = container.map.startPosWorld.getX();
         double minY = container.map.startPosWorld.getY();
-        
+
         double maxX = container.map.endPosWorld.getX();
         double maxY = container.map.endPosWorld.getY();
-        
+
         double diff = maxX - minX;
         double diffCoord = selectionRectangle.getMaxX() - selectionRectangle.getMinX();
         double koef = diff / diffCoord;
@@ -232,7 +236,7 @@ public class AreaAnalyzer {
         rec = new Rectangle(50, 50, 50, 50);
         selectedRect = new Rectangle(selectionRectangle);
         // System.out.println("maxX "+selectionRectangle.getMaxX()+" maxY "+selectionRectangle.getMaxY()+" minX "+selectionRectangle.getMinX()+" minY "+selectionRectangle.getMinY()+" centrX "+selectionRectangle.getCenterX()+" centrY "+selectionRectangle.getCenterY());
-        System.out.println("Turimas Rect objektas: "+selectedRect);
+        System.out.println("Turimas Rect objektas: " + selectedRect);
         System.out.println(rec);
 
         System.out.println("maxX " + selectionRectangle.getMaxX() + " maxY "
@@ -243,11 +247,11 @@ public class AreaAnalyzer {
                 + selectionRectangle.getCenterY());
     }
 
-//    private void addNewLayer(FeatureCollection fc, String name) {
-//        Layer newLayer = new FeatureLayer(fc, SLD.createSimpleStyle(fc.getSchema()), name);
-//        MemoryDataStore mds = new MemoryDataStore(fc);
-//        this.container.map.getMapContent().addLayer(newLayer);
-//    }
+    private void addNewLayer(FeatureCollection fc, String name) {
+        Layer newLayer = new FeatureLayer(fc, SLD.createSimpleStyle(fc.getSchema()), name);
+        MemoryDataStore mds = new MemoryDataStore(fc);
+        this.container.map.getMapContent().addLayer(newLayer);
+    }
 
     public Rectangle getSelectionRectangle() {
         double minX = container.map.startPosWorld.getX();
@@ -295,144 +299,147 @@ public class AreaAnalyzer {
      * Search area in final territory
      */
     private void searchArea() {
+
+        SimpleFeatureCollection searchAreaObjects = gis.ConversionUtils.geometryToFeatures(searchArea, "obj");
+
+        DefaultFeatureCollection searchAreaObjectsWithReljef = new DefaultFeatureCollection(new IntersectedFeatureCollection(searchAreaObjects, selectedReljefFeatures));
+
+        Style styleRM = SLD.createPolygonStyle(DEFAULT_LINE, Color.GREEN, 1);
+        Layer layerRM = new FeatureLayer(searchAreaObjectsWithReljef, styleRM, "Search Area features");
+        layerRM.setVisible(false);
+        this.container.map.getMapContent().addLayer(layerRM);
         
-        // pridedam pavirsiu ir reljefa
-        //DefaultFeatureCollection kPlotaiSuPavirsium = new DefaultFeatureCollection(new IntersectedFeatureCollection(kPlotaiBeMisku, pavirsius));
-		// DefaultFeatureCollection kPlotaiSuReljefu = new
-       // SimpleFeatureCollection kPlotaiBeMisku = gis.ConversionUtils.geometryToFeatures(gPlotaiBeMisku, "obj");
-//
-//		/*
-//		 * Style stylePM = SLD.createPolygonStyle(DEFAULT_LINE, Color.ORANGE,
-//		 * 1); Layer layerPM = new FeatureLayer(kPlotaiBeMisku, stylePM);
-//		 * this.getMapContent().addLayer(layerPM);
-//		 */
-//
-//		// Tinkami plotai su pavirsium ir reljefu
-		// Geometry gPavirsius = ConversionUtils.getGeometries(pavirsius);
-		// Geometry bPavirsiusBuferis = gPavirsius.buffer(0);//viena geometrija
-//
-//		DefaultFeatureCollection kPlotaiSuPavirsium = new DefaultFeatureCollection(
-//				new gis.IntersectedFeatureCollection(kPlotaiBeMisku, pavirsius));
-//		// DefaultFeatureCollection kPlotaiSuReljefu = new
-//		// DefaultFeatureCollection(new
-//		// IntersectedFeatureCollection(kPlotaiSuPavirsium,reljefas));
-//		Style styleRM = SLD.createPolygonStyle(DEFAULT_LINE, Color.GREEN, 1);
-//		Layer layerRM = new FeatureLayer(kPlotaiBeMisku, styleRM);
-//		layerRM.setVisible(false);
-//		this.getMapContent().addLayer(layerRM);
-//
-//		// Ipaisomas sklypas
-//
-//		SimpleFeatureTypeBuilder typeBuilder = new SimpleFeatureTypeBuilder();
-//		// typeBuilder.setCRS(CRS.decode("EPSG:3346"));
-//		typeBuilder.setCRS(kPlotaiSuPavirsium.getSchema()
-//				.getCoordinateReferenceSystem());
-//		// typeBuilder.setName(name);
-//		typeBuilder.setName("Sklypas");
-//
-//		AttributeTypeBuilder builderA = new AttributeTypeBuilder();
-//		builderA.setBinding(MultiPolygon.class);
-//		AttributeDescriptor attributeDescriptor = builderA.buildDescriptor(
-//				"geom", builderA.buildType());
-//		typeBuilder.add(attributeDescriptor);
-//		// typeBuilder.add("geom", Polygon.class, 3346);
-//		typeBuilder.add("atstumas", String.class);
-//		typeBuilder.setDefaultGeometry("geom");
-//		SimpleFeatureType type = typeBuilder.buildFeatureType();
-//
-//		SimpleFeatureIterator i = kPlotaiSuPavirsium.features();
-//
-//		Collection<Geometry> geometrijos = new ArrayList<Geometry>();
-//
-//		SimpleFeatureCollection featurai = FeatureCollections.newCollection();
-//		//int siz = featurai.size();
-//		int id = 1;
-//		while (i.hasNext()) {
-//			SimpleFeature feature = i.next();
-//			Geometry fGeometry = (Geometry) feature.getDefaultGeometry();
-//			Geometry bbox = fGeometry.getEnvelope();
-//			double miX = bbox.getEnvelopeInternal().getMinX();
-//			double maX = bbox.getEnvelopeInternal().getMaxX();
-//			double miY = bbox.getEnvelopeInternal().getMinY();
-//			double maY = bbox.getEnvelopeInternal().getMaxY();
-//			double iksai = maX - miX;
-//			double ygrekai = maY - miY;
-//			double krastas = Double.parseDouble(textField_4.getText());
-//			int krastine = (int) krastas;
-//			// jei maziau nei sklypo dydis nei nedet
-//			if ((iksai < krastas) || (ygrekai < krastas)) {
-//				continue;
-//			} else {
-//				int j = (int) iksai;
-//				int k = (int) ygrekai;
-//				boolean ardidint = true;
-//				for (int l = (int) miX; l < (int) maX - krastine; l++) {
-//				boolean keisti = false;
-//					for (int l2 = (int) miY; l2 < (int) maY - krastine; l2++) {
-//						Geometry sklypas = sklypas(l, l2, krastas);
-//						if (!geometrijos.isEmpty()) {
-//							Iterator<Geometry> ijk = geometrijos.iterator();
-//							boolean breaking = false;
-//							while (ijk.hasNext()) {
-//								Geometry dgd = ijk.next();
-//								if (dgd.overlaps(sklypas)) {
-//									breaking = true;
-//									break;
-//								}
-//
-//							}
-//							if (breaking) {
-//								continue;
-//							}
+        // Draw search area
+
+        SimpleFeatureTypeBuilder typeBuilder = new SimpleFeatureTypeBuilder();
+        // typeBuilder.setCRS(CRS.decode("EPSG:3346"));
+        typeBuilder.setCRS(searchAreaObjectsWithReljef.getSchema().getCoordinateReferenceSystem());
+        // typeBuilder.setName(name);
+        typeBuilder.setName("Sklypas");
+
+
+        
+        
+        AttributeTypeBuilder builderA = new AttributeTypeBuilder();
+        builderA.setBinding(MultiPolygon.class);
+        AttributeDescriptor attributeDescriptor = builderA.buildDescriptor(
+                "geom", builderA.buildType());
+        typeBuilder.add(attributeDescriptor);
+        // typeBuilder.add("geom", Polygon.class, 3346);
+        typeBuilder.add("atstumas", String.class);
+        typeBuilder.setDefaultGeometry("geom");
+        SimpleFeatureType type = typeBuilder.buildFeatureType();
+
+        SimpleFeatureIterator i = searchAreaObjectsWithReljef.features();
+
+        Collection<Geometry> geometrijos = new ArrayList<Geometry>();
+
+        SimpleFeatureCollection featurai = FeatureCollections.newCollection();
+        
+        
+        int id = 1;
+        while (i.hasNext()) {
+            SimpleFeature feature = i.next();
+            Geometry fGeometry = (Geometry) feature.getDefaultGeometry();
+            Geometry bbox = fGeometry.getEnvelope();
+            double miX = bbox.getEnvelopeInternal().getMinX();
+            double maX = bbox.getEnvelopeInternal().getMaxX();
+            double miY = bbox.getEnvelopeInternal().getMinY();
+            double maY = bbox.getEnvelopeInternal().getMaxY();
+            double iksai = maX - miX;
+            double ygrekai = maY - miY;
+            double krastas = 50;// TODO CHANGE ??????????????????????????
+            int krastine = (int) krastas;
+            // jei maziau nei sklypo dydis nei nedet
+            if ((iksai < krastas) || (ygrekai < krastas)) {
+                continue;
+            } else {
+                int j = (int) iksai;
+                int k = (int) ygrekai;
+                boolean ardidint = true;
+                for (int l = (int) miX; l < (int) maX - krastine; l++) {
+                    boolean keisti = false;
+                    for (int l2 = (int) miY; l2 < (int) maY - krastine; l2++) {
+                        Geometry sklypas = sklypas(l, l2, krastas);
+                        if (!geometrijos.isEmpty()) {
+                            Iterator<Geometry> ijk = geometrijos.iterator();
+                            boolean breaking = false;
+                            while (ijk.hasNext()) {
+                                Geometry dgd = ijk.next();
+                                if (dgd.overlaps(sklypas)) {
+                                    breaking = true;
+                                    break;
+                                }
+
+                            }
+                            if (breaking) {
+                                continue;
+                            }
+                        }
+                        if (sklypas.coveredBy(fGeometry)) {
+                            geometrijos.add(sklypas);
+                            SimpleFeatureBuilder builder = new SimpleFeatureBuilder(
+                                    type);
+                            builder.set("geom", sklypas);
+                            builder.add(id);
+                            builder.set("atstumas", fGeometry.getBoundary().distance(sklypas));
+                            SimpleFeature resultFeature = builder.buildFeature(String.valueOf(id));
+                            resultFeature.setDefaultGeometry(sklypas);
+                            featurai.add(resultFeature);
+                            id++;
+                            l2 += krastine;
+                            ardidint = true;
+                        }
+//						if (ardidint) {
+//							keisti = true;
+//							break;
 //						}
-//						if (sklypas.coveredBy(fGeometry)) {
-//							geometrijos.add(sklypas);
-//							SimpleFeatureBuilder builder = new SimpleFeatureBuilder(
-//									type);
-//							builder.set("geom", sklypas);
-//							builder.add(id);
-//							builder.set("atstumas", fGeometry.getBoundary()
-//									.distance(sklypas));
-//							SimpleFeature resultFeature = builder
-//									.buildFeature(String.valueOf(id));
-//							resultFeature.setDefaultGeometry(sklypas);
-//							featurai.add(resultFeature);
-//							id++;
-//							l2 += krastine;
-//							ardidint = true;
-//						}
-////						if (ardidint) {
-////							keisti = true;
-////							break;
-////						}
-//						
+
+                    }
+//					if(keisti){
+//						break;
 //					}
-////					if(keisti){
-////						break;
-////					}
-//
-//				}
-//			}
-//			if (id > 20){
-//				i.close();
-//				break;
-//			}
-//			System.out.println("Sekantis, jau yra: " + id);
-//			
-//		}
-//		
-//		//DefaultFeatureCollection kolekcija = new DefaultFeatureCollection(new IntersectedFeatureCollection(featurai,pavirsius));
-//		DefaultFeatureCollection kolekcija = new DefaultFeatureCollection(new gis.IntersectedFeatureCollection(featurai,upesMax));
-//		Style styleG = SLD.createPolygonStyle(DEFAULT_LINE, Color.RED, 1);
-//		Layer layerG = new FeatureLayer(kolekcija, styleG);
-//		layerG.setTitle("Sklypai_upiu.");
-//		this.getMapContent().addLayer(layerG);
-//
-//		
-//		DefaultFeatureCollection kolekcijs = new DefaultFeatureCollection(new gis.IntersectedFeatureCollection(featurai,ezeraiMax));
-//		Style styleG2 = SLD.createPolygonStyle(DEFAULT_LINE, Color.RED, 1);
-//		Layer layerG2 = new FeatureLayer(kolekcijs, styleG2);
-//		layerG2.setTitle("Sklypai_ezeru");
-//		this.getMapContent().addLayer(layerG2);
+
+                }
+            }
+            if (id > 20) {
+                i.close();
+                break;
+            }
+            System.out.println("Sekantis, jau yra: " + id);
+
+        }
+        
+        ;
+		Style styleG = SLD.createPolygonStyle(DEFAULT_LINE, Color.RED, 1);
+		Layer layerG = new FeatureLayer(featurai, styleG);
+		layerG.setTitle("Found areas");
+		this.container.map.getMapContent().addLayer(layerG);
+
+
+
     }
+    
+    
+    public Polygon sklypas(double x, double y, double krastas) {
+        GeometryFactory geometryFactory = JTSFactoryFinder.getGeometryFactory(null);
+        Coordinate[] coords = new Coordinate[5];
+        Coordinate X1 = new Coordinate(x, y);
+        Coordinate X2 = new Coordinate(x + krastas, y);
+        Coordinate X3 = new Coordinate(x + krastas, y + krastas);
+        Coordinate X4 = new Coordinate(x, y + krastas);
+        Coordinate XC = new Coordinate(x, y);
+        coords[0] = X1;
+        coords[1] = X2;
+        coords[2] = X3;
+        coords[3] = X4;
+        coords[4] = XC;
+
+        LinearRing ring = geometryFactory.createLinearRing(coords);
+        LinearRing holes[] = null; // use LinearRing[] to represent holes
+        Polygon polygon = geometryFactory.createPolygon(ring, holes);
+       	return polygon;
+	}
+        
+        
 }
