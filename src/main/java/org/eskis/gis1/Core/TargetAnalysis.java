@@ -109,7 +109,7 @@ public class TargetAnalysis
     }
 
     public Layer getRoadLayer() {
-        return this.map.getMapContent().layers().get(1);
+        return this.map.getMapContent().layers().get(0);
     }
     
     public Layer getRegionLayer()
@@ -118,11 +118,15 @@ public class TargetAnalysis
     }
 
     public Layer getRiverLayer() {
-        return this.map.getMapContent().layers().get(0);
+        return this.map.getMapContent().layers().get(1);
     }
 
     public double getRoadDistance() {
         return this.frame.getRoadDistance();
+    }
+
+    public Layer getReljefLayer() {
+        return this.map.getMapContent().layers().get(2);
     }
 
 }

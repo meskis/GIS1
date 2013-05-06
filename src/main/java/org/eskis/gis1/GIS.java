@@ -11,6 +11,7 @@ import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.io.File;
 import java.io.IOException;
@@ -34,6 +35,7 @@ import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureCollections;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.filter.text.cql2.CQL;
+import org.geotools.geometry.DirectPosition2D;
 import org.geotools.geometry.Envelope2D;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.map.FeatureLayer;
@@ -85,6 +87,9 @@ public class GIS extends JMapFrame implements ActionListener {
     
     protected JButton analyzeButton = new JButton("Analyze cities");
     private Rectangle selectedRecangle;
+    
+    public Point2D startPosWorld = new DirectPosition2D();
+    public Point2D endPosWorld = new DirectPosition2D();
 
     /**
      * Construct
@@ -680,7 +685,7 @@ public class GIS extends JMapFrame implements ActionListener {
     	public Layer getLayerByName(String name) {
 		List<Layer> layers = this.getMapContent().layers();
 		for (Layer element : layers) {
-			if (element.isSelected() && element.getTitle().equals(name)) {
+			if (element.getTitle().equals(name)) {
 				return element;
 			}
 		}

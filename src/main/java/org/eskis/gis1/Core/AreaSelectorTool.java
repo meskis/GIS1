@@ -33,7 +33,10 @@ public class AreaSelectorTool extends CursorTool {
     @Override
     public void onMousePressed(MapMouseEvent ev) {
         startPoint = ev.getPoint();
+        startPosDevice.setLocation(ev.getPoint());
+        startPosWorld.setLocation(ev.getWorldPos());
     }
+
 
     @Override
     public void onMouseReleased(MapMouseEvent ev) {
